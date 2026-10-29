@@ -18,6 +18,7 @@ import { setupShortcuts } from './shortcuts.js';
 import { SHAPES, defaultParams, normalizeParams, buildShape } from './shapes.js';
 import { setupNavGizmo } from './navgizmo.js';
 import { setupNumberScrub } from './numscrub.js';
+import { isTauri } from './nativemenu.js';
 
 const $ = id => document.getElementById(id);
 const container = $('view');
@@ -28,6 +29,8 @@ const gizmo = new TransformControls(camera, renderer.domElement);
 gizmo.setSpace('local');
 scene.add(gizmo);
 const editor = new SubObjectEditor({ camera, dom: renderer.domElement, gizmo, scene, snap: v => snapV(v) });
+let clipboard = [], pasteCount = 0;
+editor.extrudeOffset = () => { const v = parseFloat($('addOffset').value); return isFinite(v) ? v : 0.5; };
 editor.onSelectionChange = () => { updateToolbar(); syncGizmoForModifier(); };
 editor.onMessage = msg => { $('status').textContent = msg; setTimeout(() => { $('status').textContent = `${boxes.length} objects`; }, 2500); };
 gizmo.addEventListener('dragging-changed', e => orbit.enabled = !e.value);
@@ -53,7 +56,7 @@ function uniqueName(base) {
   for (let i = 1; ; i++) if (!used.has(`${base} ${i}`)) return `${base} ${i}`;
 }
 
-function addBox({ position, size, color, rotation, type = 'box', params, positions, faces, faceColors, name, hidden, locked }) {
+function addBox({ position, size, color, rotation, type = 'box', params, positions, faces, faceColors, name, hidden, locked, refGroup }) {
   if (!SHAPES[type]) type = 'box';
   params = normalizeParams(type, params);
   let geo, edges, model = null;
@@ -83,6 +86,8 @@ function addBox({ position, size, color, rotation, type = 'box', params, positio
   boxes.push(mesh);
   mesh.userData.hidden = !!hidden;
   mesh.userData.locked = !!locked;
+  if (refGroup !== undefined) { mesh.userData.refGroup = refGroup; nextRefGroup = Math.max(nextRefGroup, refGroup + 1); }
+  mesh.userData.refKey = geoKey(mesh);
   mesh.visible = !hidden;
   if (shading !== 'standard') applyShading(mesh);
   return mesh;
@@ -409,7 +414,8 @@ $('mCreate').onclick = () => (mode === 'place' ? setMode('select') : setShape(sh
 function updateToolbar() {
   const editing = mode === 'edit';
   for (const id of ['tMove', 'tRot', 'tScale']) $(id).disabled = !selected;
-  for (const id of ['dup', 'del']) $(id).disabled = !selected || editing;
+  for (const id of ['dup', 'del', 'cut', 'copy', 'cloneRef']) $(id).disabled = !selected || editing;
+  $('paste').disabled = !clipboard.length || editing;
   $('mEdit').disabled = selection.length !== 1;
   $('polyBtn').classList.toggle('active', mode === 'poly');
   $('mTools').disabled = !selection.length;
@@ -459,6 +465,7 @@ function updateToolbar() {
   $('subDivide').disabled = !editing || !editor.canSubdivide();
   $('subChamfer').hidden = !editing || editor.kind !== 'edge';
   $('chamferRow').hidden = $('subChamfer').hidden;
+  $('offsetRow').hidden = !editing || editor.kind !== 'face';
   $('subChamfer').disabled = !editing || !editor.canChamfer();
   $('subAdd').classList.toggle('active', editing && (editor.addMode || editor.connectMode));
   $('subAdd').dataset.tip = ADD_TITLES[editor.kind];
@@ -680,6 +687,81 @@ function deleteSelected() {
   const doomed = selection.slice();
   select(null);
   for (const m of doomed) { boxes.splice(boxes.indexOf(m), 1); disposeMesh(m); }
+  commit();
+}
+// References: objects sharing a refGroup id keep identical geometry; an edit of any member is copied to the others on commit
+var nextRefGroup = 1;
+function geoKey(m) {
+  const um = m.userData;
+  if (!um.model || (editor.active && editor.mesh === m && !editor.changed && !editor.wasCustom)) return 'p';
+  return um.model.positions.join(',') + '|' + um.model.faceOfTri.join(',') + '|' + [...um.model.faceColors].join(';');
+}
+function copyGeometry(src, dst) {
+  const sm = src.userData.model;
+  if (!sm) return;
+  const { geometry, model } = createGeometry(sm.positions, sm.faceOfTri);
+  model.faceColors = new Map(sm.faceColors);
+  dst.geometry.dispose();
+  dst.geometry = geometry;
+  Object.assign(dst.userData, { custom: true, model });
+  applyColors(dst);
+  const ol = dst.userData.outline;
+  if (ol.userData.own) ol.geometry.dispose();
+  delete ol.userData.std;
+  ol.geometry = outlineGeometry(geometry, model);
+  ol.userData.own = true;
+  if (shading !== 'standard') applyShading(dst);
+}
+function syncReferences() {
+  const groups = new Map();
+  for (const m of boxes) if (m.userData.refGroup !== undefined) (groups.get(m.userData.refGroup) || groups.set(m.userData.refGroup, []).get(m.userData.refGroup)).push(m);
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const keys = new Map(list.map(m => [m, geoKey(m)]));
+    const changed = list.filter(m => keys.get(m) !== m.userData.refKey);
+    if (!changed.length) continue;
+    const src = changed.find(m => editor.active && editor.mesh === m) || changed[0];
+    for (const m of list) {
+      if (m !== src) copyGeometry(src, m);
+      m.userData.refKey = keys.get(src);
+    }
+  }
+}
+function cloneReference() {
+  if (!selected || mode === 'edit') return;
+  const copies = selection.map(s => {
+    if (s.userData.refGroup === undefined) s.userData.refGroup = nextRefGroup++;
+    return addBox({ position: s.position.clone().add(new THREE.Vector3(+$('snap').value || 0.5, 0, 0)),
+      size: s.scale.clone(), color: s.userData.baseColor.clone(), rotation: [s.rotation.x, s.rotation.y, s.rotation.z], type: s.userData.type, params: { ...s.userData.params },
+      positions: s.userData.model?.positions, faces: s.userData.model?.faceOfTri, faceColors: s.userData.model?.faceColors, name: s.userData.name, hidden: s.userData.hidden, locked: s.userData.locked,
+      refGroup: s.userData.refGroup });
+  });
+  select(null);
+  copies.forEach(c => select(c, true));
+  commit();
+}
+// Object clipboard (in memory): snapshots of the copied objects; each paste is shifted a bit further
+function copySelected() {
+  if (!selected || mode === 'edit') return;
+  clipboard = selection.map(s => ({ position: s.position.clone(), size: s.scale.clone(), color: s.userData.baseColor.clone(),
+    rotation: [s.rotation.x, s.rotation.y, s.rotation.z], type: s.userData.type, params: structuredClone(s.userData.params),
+    positions: s.userData.model?.positions.slice(), faces: s.userData.model?.faceOfTri.slice(),
+    faceColors: s.userData.model?.faceColors && new Map(s.userData.model.faceColors), name: s.userData.name, hidden: s.userData.hidden, locked: s.userData.locked }));
+  pasteCount = 0;
+  updateToolbar();
+}
+function cutSelected() {
+  if (!selected || mode === 'edit') return;
+  copySelected();
+  deleteSelected();
+}
+function pasteClipboard() {
+  if (!clipboard.length || mode === 'edit') return;
+  const off = (+$('snap').value || 0.5) * ++pasteCount;
+  const copies = clipboard.map(c => addBox({ ...c, position: c.position.clone().add(new THREE.Vector3(off, 0, 0)), size: c.size.clone(), color: c.color.clone(),
+    params: structuredClone(c.params), positions: c.positions?.slice(), faces: c.faces?.slice(), faceColors: c.faceColors && new Map(c.faceColors) }));
+  select(null);
+  copies.forEach(c => select(c, true));
   commit();
 }
 function duplicateSelected() {
@@ -1076,7 +1158,9 @@ function applyArray() {
   const rot = ['x', 'y', 'z'].map(a => THREE.MathUtils.degToRad(num('arR' + a)));
   const scl = ['x', 'y', 'z'].map(a => num('arS' + a) || 1);
   const local = $('arRel').checked, sources = selection.slice(), copies = [];
+  const asRef = $('arRef').checked;
   for (const s of sources) {
+    if (asRef && s.userData.refGroup === undefined) s.userData.refGroup = nextRefGroup++;
     const tr = arrayTransforms(s, off, rot, n, local);
     for (let i = 1; i <= n; i++) {
       copies.push(addBox({
@@ -1086,7 +1170,8 @@ function applyArray() {
         rotation: tr[i - 1].rotation,
         type: s.userData.type, params: { ...s.userData.params },
         positions: s.userData.model?.positions, faces: s.userData.model?.faceOfTri, faceColors: s.userData.model?.faceColors,
-        name: s.userData.name, hidden: s.userData.hidden, locked: s.userData.locked }));
+        name: s.userData.name, hidden: s.userData.hidden, locked: s.userData.locked,
+        refGroup: asRef ? s.userData.refGroup : undefined }));
     }
   }
   select(null);
@@ -1174,6 +1259,10 @@ $('closeHoles').onclick = closeHolesSelected;
 $('boolApply').onclick = applyBool;
 $('del').onclick = deleteSelected;
 $('dup').onclick = duplicateSelected;
+$('cloneRef').onclick = cloneReference;
+$('cut').onclick = cutSelected;
+$('copy').onclick = copySelected;
+$('paste').onclick = pasteClipboard;
 
 window.addEventListener('keydown', syncGizmoForModifier);
 window.addEventListener('keyup', syncGizmoForModifier);
@@ -1304,7 +1393,7 @@ setupShortcuts({
   save: () => $('exp').click(),
   clear: () => $('clear').click(),
   undo, redo,
-  dup: duplicateSelected,
+  dup: duplicateSelected, cloneRef: cloneReference, cut: cutSelected, copy: copySelected, paste: pasteClipboard,
   del: deleteSelected,
   deselect: () => select(null),
   bool: toggleBool,
@@ -1338,7 +1427,7 @@ setupShortcuts({
   about: () => $('logoBtn').click(),
 }, { edit: () => mode === 'edit', sel: () => !!selected });
 
-setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex, round,
+setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex, round, docSaved, docReset, getDocName: () => docName,
   getGroups: () => ({
     objects: Object.fromEntries(objGroups),
     edit: Object.fromEntries([...editGroups].map(([k, g]) => [k, Object.fromEntries(g)])),
@@ -1352,7 +1441,7 @@ setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex, round,
 });
 
 function clearAll() { if (mode === 'edit') setMode('select'); select(null); while (boxes.length) disposeMesh(boxes.pop()); }
-$('clear').onclick = () => { if (!boxes.length || confirm('Delete all objects?')) { clearAll(); commit(); } };
+$('clear').onclick = () => { if (!boxes.length || confirm('Delete all objects?')) { clearAll(); commit(); docReset(); } };
 
 addEventListener('resize', resize);
 resize();
@@ -1437,6 +1526,7 @@ function snapshot() {
       name: m.userData.name, position: m.position.toArray(), size: m.scale.toArray(), rotation: [m.rotation.x, m.rotation.y, m.rotation.z],
       color: baseHex(m), type: m.userData.type, params: { ...m.userData.params },
       ...(m.userData.hidden && { hidden: true }), ...(m.userData.locked && { locked: true }),
+      ...(m.userData.refGroup !== undefined && { refGroup: m.userData.refGroup }),
       ...(m.userData.custom && (!ed || editor.changed || editor.wasCustom) && { positions: Array.from(m.userData.model.positions), faces: Array.from(m.userData.model.faceOfTri), ...(m.userData.model.faceColors.size && { faceColors: [...m.userData.model.faceColors] }) }),
     };
   });
@@ -1444,8 +1534,19 @@ function snapshot() {
 function updateHistoryUI() {
   $('undo').disabled = !undoStack.length;
   $('redo').disabled = !redoStack.length;
+  updateTitle();
 }
+// Document title: file name (or "scene"), with "*" while there are changes not saved to that file
+var docName = null, savedState = null;
+function updateTitle() {
+  const title = (docName || 'scene') + (current !== savedState || !docName ? '*' : '');
+  document.title = isTauri ? title : `${title} – 3DForge`;
+  if (isTauri) window.__TAURI__.window.getCurrentWindow().setTitle(title);
+}
+function docSaved(name) { commit(); docName = name; savedState = current; updateTitle(); }
+function docReset() { docName = null; savedState = null; updateTitle(); }
 function commit() {
+  syncReferences();
   const s = JSON.stringify(snapshot());
   if (s === current) return;
   if (current !== null) { undoStack.push(current); if (undoStack.length > MAX_HISTORY) undoStack.shift(); }
@@ -1458,7 +1559,7 @@ function restore(json) {
   const idx = selection.map(m => boxes.indexOf(m));
   clearAll();
   for (const b of JSON.parse(json)) addBox({ position: new THREE.Vector3(...b.position), size: new THREE.Vector3(...b.size),
-    color: b.color, rotation: b.rotation, type: b.type, params: b.params, positions: b.positions, faces: b.faces, faceColors: b.faceColors, name: b.name, hidden: b.hidden, locked: b.locked });
+    color: b.color, rotation: b.rotation, type: b.type, params: b.params, positions: b.positions, faces: b.faces, faceColors: b.faceColors, name: b.name, hidden: b.hidden, locked: b.locked, refGroup: b.refGroup });
   if (mode !== 'place') {
     idx.filter(i => boxes[i]).forEach(i => select(boxes[i], true));
     if (wasEdit) setMode('edit');

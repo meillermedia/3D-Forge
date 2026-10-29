@@ -134,3 +134,10 @@ kbd { display: inline-block; font: 11px/1 ui-monospace, Menlo, monospace; backgr
 #pivotRow { align-items: center; }
 #pivotRow .pivotChk { display: inline-flex; align-items: center; gap: 3px; }
 #pivotRow .ico { width: 18px; height: 18px; }
+
+/* Tauri app: the native system menu replaces the web menu bar */
+body.native-menu #menubar { display: none; }
+body.native-menu #view { top: 0; }
+body.native-menu #panel { top: 0; }
+body.native-menu #navWrap, body.native-menu #createWrap { top: 10px; }
+body.native-menu #toolbar { top: 92px; }

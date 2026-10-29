@@ -142,32 +142,35 @@ export function parse3ds(buffer) {
 
 // Wires up the File menu: JSON/3DS/OBJ/STL/glTF export and import.
 // ctx: { boxes (live array of meshes), addBox, applyColors, clearAll, commit, baseHex, round }
-export function setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex, round, getGroups, setGroups }) {
+export function setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex, round, docSaved, docReset, getDocName, getGroups, setGroups }) {
   // Import / Export
   $('exp').onclick = () => {
     const objects = boxes.map(m => ({
       name: m.userData.name, position: m.position.toArray().map(round), size: m.scale.toArray().map(round),
       rotation: [m.rotation.x, m.rotation.y, m.rotation.z].map(round), color: baseHex(m), type: m.userData.type, params: m.userData.params,
-      ...(m.userData.hidden && { hidden: true }), ...(m.userData.locked && { locked: true }),
+      ...(m.userData.hidden && { hidden: true }), ...(m.userData.locked && { locked: true }), ...(m.userData.refGroup !== undefined && { refGroup: m.userData.refGroup }),
       ...(m.userData.custom && { positions: Array.from(m.userData.model.positions, v => Math.round(v * 1e4) / 1e4), faces: Array.from(m.userData.model.faceOfTri) }),
       ...(m.userData.model?.faceColors.size && { faceColors: [...m.userData.model.faceColors] })
     }));
     const data = { format: 'scene', objects, selectionGroups: getGroups() };
-    download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), 'szene.json');
+    download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), getDocName() || 'scene.json').then(name => name && docSaved(name));
   };
   // In the Tauri desktop app a native save dialog is used (WebView downloads are unreliable); in the browser a normal download
+  // Resolves to the saved file name (null if cancelled)
   async function download(blob, name) {
     const tauri = window.__TAURI__;
     if (tauri?.dialog && tauri?.fs) {
       const path = await tauri.dialog.save({ defaultPath: name });
-      if (path) await tauri.fs.writeFile(path, new Uint8Array(await blob.arrayBuffer()));
-      return;
+      if (!path) return null;
+      await tauri.fs.writeFile(path, new Uint8Array(await blob.arrayBuffer()));
+      return path.split(/[\\/]/).pop();
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
     a.click();
     URL.revokeObjectURL(a.href);
+    return name;
   }
   // Scene with transforms baked in, without outline lines (for OBJ/STL/glTF)
   function bakedScene() {
@@ -255,6 +258,7 @@ export function setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex,
       }
     }
     commit();
+    docReset();
   }
   function meshesOf(root) {
     root.updateMatrixWorld(true);
@@ -350,8 +354,9 @@ export function setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex,
         clearAll();
         setGroups(Array.isArray(parsed) ? null : parsed.selectionGroups);
         for (const b of data) addBox({ position: new THREE.Vector3(...b.position), size: new THREE.Vector3(...b.size),
-          color: b.color, rotation: b.rotation, type: b.type, params: b.params, positions: b.positions, faces: b.faces, faceColors: b.faceColors, name: b.name, hidden: b.hidden, locked: b.locked });
+          color: b.color, rotation: b.rotation, type: b.type, params: b.params, positions: b.positions, faces: b.faces, faceColors: b.faceColors, name: b.name, hidden: b.hidden, locked: b.locked, refGroup: b.refGroup });
         commit();
+        docSaved(f.name);
       }
     } catch (err) { alert('Import failed: ' + (err.message || 'Invalid file')); }
     e.target.value = '';

@@ -12,7 +12,11 @@ export const SHORTCUTS = [
   // Edit
   { id: 'undo', group: 'Edit', label: 'Undo', keys: ['Ctrl+Z'], el: '#undo' },
   { id: 'redo', group: 'Edit', label: 'Redo', keys: ['Ctrl+Shift+Z', 'Ctrl+Y'], el: '#redo' },
+  { id: 'cut', group: 'Edit', label: 'Cut selected objects', keys: ['Ctrl+X'], when: 'obj', el: '#cut' },
+  { id: 'copy', group: 'Edit', label: 'Copy selected objects', keys: ['Ctrl+C'], when: 'obj', el: '#copy' },
+  { id: 'paste', group: 'Edit', label: 'Paste objects', keys: ['Ctrl+V'], when: 'obj', el: '#paste' },
   { id: 'dup', group: 'Edit', label: 'Duplicate selected objects', keys: ['Ctrl+D'], when: 'obj', el: '#dup' },
+  { id: 'cloneRef', group: 'Edit', label: 'Clone as reference (edits are shared)', keys: ['Ctrl+Shift+D'], when: 'obj', el: '#cloneRef' },
   { id: 'del', group: 'Edit', label: 'Delete selected objects', keys: ['Del', 'Backspace'], when: 'obj', el: '#del' },
   { id: 'selectAllObjects', group: 'Edit', label: 'Select all objects', keys: ['Ctrl+A'], when: 'obj' },
   { id: 'bool', group: 'Edit', label: 'Boolean operation (two objects)', keys: ['Shift+B'], when: 'obj', el: '#bool' },

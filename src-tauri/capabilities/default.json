@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Main window: native save dialog and writing the chosen file",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-save", "fs:allow-write-file"]
+  "permissions": ["core:default", "dialog:allow-save", "fs:allow-write-file", "core:window:allow-set-title"]
 }

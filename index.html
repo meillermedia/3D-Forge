@@ -54,7 +54,12 @@
       <button id="undo" disabled><span class="mi"><span class="ico" style="--icon:url(../icons/undo.svg)"></span>Undo</span></button>
       <button id="redo" disabled><span class="mi"><span class="ico" style="--icon:url(../icons/redo.svg)"></span>Redo</span></button>
       <span class="msep"></span>
+      <button id="cut" disabled><span class="mi"><span class="ico"></span>Cut</span></button>
+      <button id="copy" disabled><span class="mi"><span class="ico"></span>Copy</span></button>
+      <button id="paste" disabled><span class="mi"><span class="ico"></span>Paste</span></button>
+      <span class="msep"></span>
       <button id="dup" title="Duplicate (Ctrl+D)"><span class="mi"><span class="ico" style="--icon:url(../icons/dup.svg)"></span>Duplicate</span></button>
+      <button id="cloneRef" disabled><span class="mi"><span class="ico" style="--icon:url(../icons/dup.svg)"></span>Clone Reference</span></button>
       <button id="del" title="Delete (Del)"><span class="mi"><span class="ico" style="--icon:url(../icons/del.svg)"></span>Delete</span></button>
     </div>
   </div>
@@ -177,6 +182,7 @@
   <div id="secSel" hidden>
     <h3>Selected</h3>
     <div class="row" id="mirrorRow" hidden>Mirror: <label><input type="checkbox" data-mirror="x"> X</label> <label><input type="checkbox" data-mirror="y"> Y</label> <label><input type="checkbox" data-mirror="z"> Z</label></div>
+    <div class="row" id="offsetRow" hidden style="margin-top:8px">Offset (add faces): <input type="number" id="addOffset" value="0.5" step="0.1" style="width:70px"></div>
     <div class="row" id="chamferRow" hidden>Chamfer width: <input type="number" id="chamferW" value="0.2" min="0.01" step="0.05" style="width:70px"></div>
     <div id="boolRow" hidden>
       <div class="row"><b>Bool</b></div>
@@ -194,6 +200,7 @@
     <div id="arrayRow" hidden>
       <div class="row"><b>Array</b></div>
       <div class="row">Copies: <input type="number" id="arCount" value="3" min="1" max="100" step="1" style="width:70px"></div>
+      <div class="row"><label title="On: the copies are linked to the original, so edits of one are applied to all. Off: independent copies."><input type="checkbox" id="arRef" checked> Reference</label></div>
       <div class="grid3">
         <span></span><span>X</span><span>Y</span><span>Z</span>
         <span>Offset</span><input type="number" id="arPx" value="1" step="0.5"><input type="number" id="arPy" value="0" step="0.5"><input type="number" id="arPz" value="0" step="0.5">
@@ -255,6 +262,7 @@
     Del: delete · Ctrl+D: duplicate · Esc: deselect · Ctrl+Z / Ctrl+Shift+Z: undo / redo<br>
     <b>Shortcuts</b><br>
     1: Select · 2–9: Box / Sphere / Cylinder / Tube / Plane / Cone / Torus / Ico Sphere · W / E / R: Move / Rotate / Scale · X: gizmo global / local · Tab: edit mode<br>
+    <b>Clone Reference</b> (Edit menu, Ctrl+Shift+D): creates a copy that stays linked to the original; changes made in edit mode to any of them are applied to all linked objects (position, rotation, scale and color remain individual).<br>
     <b>File menu</b>: load / save JSON (lossless); import / export 3DS, OBJ, STL, glTF/GLB.
   </div>
   <div class="row" style="margin-top:12px"><button data-close>Close</button></div>
@@ -270,7 +278,7 @@
     <b>Remove (Del):</b> deletes selected vertices, edges (merges the faces) or faces. Disabled while nothing is selected.<br>
     <b>Chamfer (B):</b> bevels the selected edges; the width is set in the panel. Only edges between two faces are chamfered; faces with holes or interior points are rejected.<br>
     <b>Subdivide (Shift+D):</b> refines the selected faces (and their mirrored counterparts) with Catmull-Clark subdivision. Only available in face mode with faces selected; the new faces stay selected so it can be repeated. Edges to unselected faces keep their shape.<br>
-    <b>Mirror X / Y / Z</b> (panel): repeats every edit on the opposite side of the object's local plane. Several axes can be combined. With Faces – Add only the edited side stays selected.<br>
+    <b>Mirror X / Y / Z</b> (panel): repeats every edit on the opposite side of the object's local plane. Several axes can be combined. With Faces – Add only the edited side stays selected. The Offset field sets the distance of the new faces (default 0.5).<br>
     <b>Face colour:</b> with faces selected, the panel shows a colour field for just those faces (Reset restores the object colour).<br>
     Selected edges are drawn as thick orange lines.
   </div>

@@ -39,7 +39,7 @@ export class ExtrudeMethods {
     });
     if (n.lengthSq() < 1e-12) return;
     const sc = this.mesh.scale;
-    n.normalize().multiplyScalar(0.5 / ((sc.x + sc.y + sc.z) / 3 || 1));
+    n.normalize().multiplyScalar((this.extrudeOffset ? this.extrudeOffset() : 0.5) / ((sc.x + sc.y + sc.z) / 3 || 1));
     const copy = new Map();
     for (const i of idx) for (const v of T.tris[i]) {
       if (!copy.has(v)) {
