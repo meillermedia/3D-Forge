@@ -51,6 +51,8 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &item("STL", "[data-exp='stl']", true, None)?,
             &item("glTF (GLB)", "[data-exp='glb']", true, None)?,
             &item("3DS", "[data-exp='3ds']", true, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &item("Image (PNG)", "[data-exp='png']", true, None)?,
         ])?,
         &PredefinedMenuItem::separator(app)?,
         &item("Clear scene", "#clear", true, None)?,

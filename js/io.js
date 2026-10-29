@@ -142,7 +142,7 @@ export function parse3ds(buffer) {
 
 // Wires up the File menu: JSON/3DS/OBJ/STL/glTF export and import.
 // ctx: { boxes (live array of meshes), addBox, applyColors, clearAll, commit, baseHex, round }
-export function setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex, round, docSaved, docReset, getDocName, getGroups, setGroups }) {
+export function setupIO({ renderImage, boxes, addBox, applyColors, clearAll, commit, baseHex, round, docSaved, docReset, getDocName, getGroups, setGroups }) {
   // Import / Export
   $('exp').onclick = () => {
     const objects = boxes.map(m => ({
@@ -189,6 +189,10 @@ export function setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex,
   async function exportAs(fmt) {
     if (!boxes.length) { alert('The scene is empty'); return; }
     try {
+      if (fmt === 'png') {
+        download(await renderImage(), 'scene.png');
+        return;
+      }
       if (fmt === '3ds') {
         const objs = boxes.map((m, i) => {
           m.updateMatrixWorld(true);

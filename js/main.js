@@ -1427,7 +1427,25 @@ setupShortcuts({
   about: () => $('logoBtn').click(),
 }, { edit: () => mode === 'edit', sel: () => !!selected });
 
-setupIO({ boxes, addBox, applyColors, clearAll, commit, baseHex, round, docSaved, docReset, getDocName: () => docName,
+// PNG of the current view with transparent background; grid, axes, gizmos, selection and edit overlays are hidden for the shot
+function renderImage() {
+  const hidden = [];
+  const hide = o => { if (o.visible) { o.visible = false; hidden.push(o); } };
+  scene.children.forEach(c => { if (!c.isLight && !boxes.includes(c)) hide(c); });
+  boxes.forEach(m => m.children.forEach(c => { if (c !== m.userData.outline) hide(c); }));
+  const lit = selection.filter(m => m.material.emissive.getHex() !== 0);
+  lit.forEach(m => m.material.emissive.setHex(0));
+  const bg = scene.background;
+  scene.background = null;
+  renderer.render(scene, camera);
+  const canvas = renderer.domElement;
+  const blob = new Promise(res => canvas.toBlob(res, 'image/png'));
+  scene.background = bg;
+  hidden.forEach(o => { o.visible = true; });
+  lit.forEach(m => m.material.emissive.setHex(0x222222));
+  return blob;
+}
+setupIO({ renderImage, boxes, addBox, applyColors, clearAll, commit, baseHex, round, docSaved, docReset, getDocName: () => docName,
   getGroups: () => ({
     objects: Object.fromEntries(objGroups),
     edit: Object.fromEntries([...editGroups].map(([k, g]) => [k, Object.fromEntries(g)])),

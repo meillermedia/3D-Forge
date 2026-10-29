@@ -9,7 +9,7 @@ export function createStage(container) {
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
   camera.position.set(6, 5, 8);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(devicePixelRatio);
   renderer.shadowMap.enabled = true;
   container.appendChild(renderer.domElement);
