@@ -1,4 +1,4 @@
-# 3DForge 0.5
+# 3DForge 0.6
 
 **Live demo:** <https://meillermedia.github.io/3D-Forge/>
 

@@ -1,6 +1,6 @@
 [package]
 name = "forge3d"
-version = "0.5.0"
+version = "0.6.0"
 description = "3DForge mesh modeller"
 edition = "2021"
 

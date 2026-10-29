@@ -1,7 +1,7 @@
 {
   "name": "3dforge",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Optional tooling to build the 3DForge macOS app with Tauri. Not needed to run the web version.",
   "scripts": {
     "app:prepare": "node scripts/prepare-app.js",
