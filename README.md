@@ -74,27 +74,6 @@ Imported meshes become editable objects with their centre as origin.
 
 The complete, always up-to-date list is in the app (`?`).
 
-## Project structure
-
-| Path | Purpose |
-|------|---------|
-| `index.html` | Layout, menus, dialogs |
-| `css/styles.css` | Styles |
-| `icons/` | Editable SVG icons (one file per icon, `stroke` is masked with the button colour), the logo and the favicon (`favicon.svg`) |
-| `js/main.js` | App logic: modes, toolbar, panels, object list, undo/redo, selection tool |
-| `js/stage.js` | Scene, camera, renderer, orbit controls, grid |
-| `js/shapes.js` | Parametric primitives |
-| `js/model.js`, `js/polygon.js` | Editable mesh model and polygon helpers |
-| `js/io.js` | Import / export, including a minimal 3DS reader/writer |
-| `js/shortcuts.js` | Shortcut registry, tooltips and shortcut table |
-| `js/navgizmo.js`, `js/numscrub.js`, `js/splash.js` | Navigation gizmo, number scrubbing, splash screen |
-| `js/edit/editor.js` | Sub-object editor (vertex / edge / face) core, picking and region selection |
-| `js/edit/mirror.js`, `topology.js`, `chamfer.js`, `extrude.js`, `subdivide.js` | Edit tools, mixed into the editor |
-| `js/tools/csg.js` | Boolean (CSG) algorithm for meshes |
-| `js/tools/remesh.js` | Remesh / skin-only |
-| `js/tools/lattice.js` | Lattice (free-form deformation cage) |
-| `js/tools/region.js` | Selection regions (rectangle, circle, lasso) as polygons |
-
 ## Limitations
 - Chamfer works only on edges shared by exactly two faces; Connect only on boundary points of one face
 - The mirror setting is not stored in undo history or files
