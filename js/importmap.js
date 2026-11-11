@@ -11,6 +11,7 @@
   } catch (e) {}
   var cdn = 'https://cdn.jsdelivr.net/npm/three@0.160.0/';
   var base = ok ? local : cdn;
+  window.__THREE_BASE__ = base;
   var el = document.createElement('script');
   el.type = 'importmap';
   el.textContent = JSON.stringify({ imports: {

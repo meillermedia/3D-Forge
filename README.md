@@ -53,6 +53,7 @@ Imported meshes become editable objects with their centre as origin.
 - Splash screen and logo (click the logo to show it again)
 - Keyboard shortcuts for the whole workflow, shown in hover tooltips, next to menu items, and in **Help → Keyboard shortcuts** (`?`)
 - Help dialogs for controls and edit mode (`F1`, `Shift+F1`)
+- Longer-running JSON, 3DS, OBJ, STL and glTF/GLB import/export work, plus remeshing, runs in a background worker with a spinning wait indicator
 
 ## Keyboard shortcuts (overview)
 

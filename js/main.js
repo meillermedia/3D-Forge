@@ -12,8 +12,8 @@ import { Lattice } from './tools/lattice.js';
 import { registerWebMCP } from './webmcp.js';
 import { Model, nonIndexedPositions as nonIdx, edgeKey } from './model.js';
 import { nonIndexedPositions } from './model.js';
-import { remesh, skinOnly } from './tools/remesh.js';
 import { setupIO } from './io.js';
+import { runWorkerTask, withWaitCursor } from './worker-client.js';
 import { setupShortcuts } from './shortcuts.js';
 import { SHAPES, defaultParams, normalizeParams, buildShape } from './shapes.js';
 import { setupNavGizmo } from './navgizmo.js';
@@ -977,7 +977,7 @@ $('mergeBtn').onclick = () => { if (canMerge()) toggleTool('merge'); };
 $('mergeApply').onclick = mergeSelected;
 // Remesh: rebuild each selected mesh with evenly sized triangles (edge length = longest side / fineness)
 let remeshOpen = false;
-function remeshObject(mesh, fineness) {
+async function remeshObject(mesh, fineness) {
   const um = mesh.userData, s = mesh.scale;
   const pos = um.model ? um.model.positions.slice() : nonIdx(mesh.geometry);
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
@@ -987,11 +987,11 @@ function remeshObject(mesh, fineness) {
   }
   const side = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
   if (!(side > 0)) return null;
-  const skin = skinOnly(pos), r = remesh(skin.positions, side / fineness);
+  const r = await runWorkerTask('remesh', { positions: pos, edgeLength: side / fineness }, [pos.buffer]);
   if (!r) return null;
   const faces = new Model(r.positions.slice()).faceOfTri, faceColors = new Map(), oldM = um.model;
   if (oldM?.faceColors.size) {
-    faces.forEach((f, i) => { const c = oldM.faceColors.get(oldM.faceOfTri[skin.map[r.src[i]]]); if (c !== undefined && !faceColors.has(f)) faceColors.set(f, c); });
+    faces.forEach((f, i) => { const c = oldM.faceColors.get(oldM.faceOfTri[r.skinMap[r.src[i]]]); if (c !== undefined && !faceColors.has(f)) faceColors.set(f, c); });
   }
   const idx = boxes.indexOf(mesh), name = um.name;
   const nm = addBox({ position: mesh.position.clone(), size: new THREE.Vector3(1, 1, 1), color: um.baseColor.clone(),
@@ -1001,28 +1001,28 @@ function remeshObject(mesh, fineness) {
   boxes.splice(boxes.indexOf(mesh), 1);
   return { old: mesh, nm, name };
 }
-function applyRemesh() {
+async function applyRemesh() {
   if (!canSmooth()) return;
   const fineness = Math.min(200, Math.max(2, +$('rmFine').value || 10));
   const msg = t => { $('remeshMsg').textContent = t; };
   const sel = selection.slice(), done = [];
   msg('Working…');
   select(null);
-  let failed = false;
+  let failureReason = '';
   for (const mesh of sel) {
     try {
-      const r = remeshObject(mesh, fineness);
+      const r = await remeshObject(mesh, fineness);
       if (r) { disposeMesh(r.old); r.nm.userData.name = r.name; done.push(r.nm); } else done.push(mesh);
-    } catch (err) { failed = true; done.push(mesh); }
+    } catch (err) { failureReason ||= err.message || 'Unknown error'; done.push(mesh); }
   }
   done.forEach(o => select(o, true));
-  msg(failed ? 'Too fine for some objects (skipped)' : '');
+  msg(failureReason ? `Remesh failed: ${failureReason}` : '');
   commit();
   syncList();
   updateToolbar();
 }
 $('remeshBtn').onclick = () => { if (canSmooth()) toggleTool('remesh'); };
-$('remeshApply').onclick = applyRemesh;
+$('remeshApply').onclick = () => withWaitCursor(applyRemesh).catch(err => alert(err.message || 'Remesh failed'));
 // Flip: reverse the triangle winding of every selected object, which turns its normals around
 function flipSelected() {
   if (!canSmooth()) return;
