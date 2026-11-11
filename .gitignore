@@ -6,3 +6,5 @@ node_modules/
 /.env.signing
 /store/
 .DS_Store
+/src-tauri/gen/
+/src-tauri/target/
