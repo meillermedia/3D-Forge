@@ -1,4 +1,4 @@
-# 3DForge 0.7
+# 3DForge 0.8
 
 A small mesh modeller
 
