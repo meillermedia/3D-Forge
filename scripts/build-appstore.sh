@@ -10,7 +10,12 @@ if [ -f .env.signing ]; then
   set +a
 fi
 for v in APPLE_TEAM_ID APPSTORE_APP_IDENTITY APPSTORE_INSTALLER_IDENTITY APPSTORE_PROVISIONING_PROFILE; do
-  eval "val=\${$v}"
+  case "$v" in
+    APPLE_TEAM_ID) val=$APPLE_TEAM_ID ;;
+    APPSTORE_APP_IDENTITY) val=$APPSTORE_APP_IDENTITY ;;
+    APPSTORE_INSTALLER_IDENTITY) val=$APPSTORE_INSTALLER_IDENTITY ;;
+    APPSTORE_PROVISIONING_PROFILE) val=$APPSTORE_PROVISIONING_PROFILE ;;
+  esac
   if [ -z "$val" ]; then echo "$v is not set. See .env.signing.example." >&2; exit 1; fi
 done
 if [ ! -f "$APPSTORE_PROVISIONING_PROFILE" ]; then echo "Provisioning profile not found: $APPSTORE_PROVISIONING_PROFILE" >&2; exit 1; fi
